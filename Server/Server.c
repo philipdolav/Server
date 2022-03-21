@@ -14,6 +14,68 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #define PORT_s "8888"
+#define PORT_r "8889"
+#define BUFFER_SIZE 1500
+
+int rand_noise(char* buffer, int seed, double probability)
+{
+	/*
+		Receives (char*) buffer, (int) seed, (double) probability, and "flips" every buffer's bit at the given probabilty.
+		Return value: number of flipped bits.
+	*/
+
+	int probability_factor = 1 / probability;
+	int mask = 1, flipp_bit_counter = 0;
+	srand(seed);
+
+	for (int i = 0; i < strlen(buffer); i++)
+	{
+		mask = 1;
+		for (int j = 0; j < 8; j++) // noise is independent on every bit
+		{
+			/*
+			if (pow(2, 16) == MAX_P)
+			{
+				if (rand() % 2 == 0)
+				{
+					continue;
+				}
+			}
+			*/
+			if ((rand() % probability_factor) == 0)
+			{
+				buffer[i] = buffer[i] ^ mask;
+				flipp_bit_counter++;
+			}
+			mask *= 2; // shift left to next bit inside buffer[i]
+		}
+	}
+
+	return flipp_bit_counter;
+}
+
+int determinist_noise(int n, char* buffer) 
+{ 
+	int flipp_bit_counter = 0, mask;
+
+	for (int i = 0; i < strlen(buffer); i++)
+	{
+		mask = 1;
+		for (int j = 0; j < 8; j++)
+		{
+			if ((8 * i + j) % n == 0) // bit number
+			{
+				buffer[i] = buffer[i] ^ mask;
+				flipp_bit_counter++;
+			}
+			mask *= 2; // shift left to next bit inside buffer[i]
+		}
+	}
+
+	return flipp_bit_counter;
+}
+
+
 int main(int argc, char* argv[])
 {
 	WSADATA wsa_data;
@@ -60,18 +122,17 @@ int main(int argc, char* argv[])
 	//sender_addr.sin_addr.s_addr = inet_addr(argv[1]);
 	sender_addr.sin_addr.s_addr = inet_addr(inet_ntoa(addr));
 	//sender_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	int server_addrss_len = sizeof(sender_addr);
 	
 
-	//Bind
+	//Bind and connect sender:
 	if (bind(Sender_s, (struct sockaddr*)&sender_addr, sizeof(sender_addr)) == SOCKET_ERROR)
 	{
-		printf("Bind failed with error code : %d", WSAGetLastError());
+		printf("Bind failed with error code : %d\n", WSAGetLastError());
 		exit(EXIT_FAILURE);
 	}
 	//wait for data to be sent by the channel WSA_FLAG_OVERLAPPED
 	int ListenRes = listen(Sender_s, SOMAXCONN);
-	printf(" IP Adress  %s Port adress:  %d listen: %d ", inet_ntoa(sender_addr.sin_addr), sender_addr.sin_port, ListenRes);
+	printf(" IP Adress  %s \nPort adress:  %d \nlisten: %d \n", inet_ntoa(sender_addr.sin_addr), sender_addr.sin_port, ListenRes);
 	if (ListenRes == SOCKET_ERROR)
 	{
 		printf("Failed listening on socket, error %ld.\n", WSAGetLastError());
@@ -84,15 +145,90 @@ int main(int argc, char* argv[])
 		printf("Accepting connection with client failed, error %ld\n", WSAGetLastError());
 	}
 
+	if ((reciever_s = WSASocketA(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_OVERLAPPED)) == INVALID_SOCKET)
+		//if ((server_s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == INVALID_SOCKET)
+	{
+		printf("Could not create socket : %d\n", WSAGetLastError());
+		return 1;
+	}
+
 	struct sockaddr_in reciever_addr;
 	reciever_addr.sin_family = AF_INET;
-	reciever_addr.sin_port = 9001;
+	reciever_addr.sin_port = htons(atoi(PORT_r));
 	reciever_addr.sin_addr.s_addr = inet_addr(inet_ntoa(addr));
 
+	// Bind and connect reciever:
+/* 	if (bind(reciever_s, (struct sockaddr*)&sender_addr, sizeof(sender_addr)) == SOCKET_ERROR)
+	{
+		printf("Bind failed with error code : %d", WSAGetLastError());
+		exit(EXIT_FAILURE);
+	}
+	//wait for data to be sent by the channel WSA_FLAG_OVERLAPPED
+	int ListenRes = listen(reciever_s, SOMAXCONN);
+	printf(" IP Adress  %s Port adress:  %d listen: %d ", inet_ntoa(sender_addr.sin_addr), sender_addr.sin_port, ListenRes);
+	if (ListenRes == SOCKET_ERROR)
+	{
+		printf("Failed listening on socket, error %ld.\n", WSAGetLastError());
+		return 1;
+	}
+	SOCKET reciever;
+	reciever = accept(reciever_s, NULL, NULL);
+	if (reciever == INVALID_SOCKET)
+	{
+		printf("Accepting connection with client failed, error %ld\n", WSAGetLastError());
+	}
+*/
+	int buff_length, flipped_bits = 0;
+	unsigned char buffer[BUFFER_SIZE + 2] = { 0 };
+
+	//char* flag = argv[1];
+	double probability;
+
+	//if(!strcmp(flag,'-r'))
+		//probability = atoi(argv[2]) / (pow(2, 16));
+
+	while (1)
+	{
+
+		
 
 
 
 
 
+		do {
 
+			buff_length = recv(sender, buffer, BUFFER_SIZE +2, 0);
+			if (buff_length > 0)
+				printf("Bytes received: %d\n the strins is %s\n", buff_length, buffer);
+			else if (buff_length == 0) {
+				printf("Connection closed\n");
+			}
+			else
+				printf("recv failed: %d\n", WSAGetLastError());
+
+		} while (buff_length > 0);
+		break;
+	
+	}
+
+
+		
+		// Noise insert:
+		//if (!strcmp(flag, '-r'))
+			//flipped_bits += rand_noise(buffer, argv[3], probability);
+	//	else if (!strcmp(flag, '-d'))
+		//	flipped_bits += determinist_noise(argv[2], buffer);
+
+		//Send to reciever:
+
+
+
+	
 }
+
+
+
+
+
+
