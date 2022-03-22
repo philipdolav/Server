@@ -15,7 +15,7 @@
 #include <stdbool.h>
 #define PORT_s "8888"
 #define PORT_r "8889"
-#define BUFFER_SIZE 1500
+#define BUFFER_SIZE 3100
 
 int rand_noise(char* buffer, int seed, double probability)
 {
@@ -83,7 +83,8 @@ int main(int argc, char* argv[])
 	struct hostent* remotehost = 0;
 	char host_name[100];
 	struct in_addr addr;
-	
+	char continue_abort[10] = {0};
+	SOCKET reciever, Sender_s, reciever_s, sender;
 	result = WSAStartup(MAKEWORD(2, 2), &wsa_data);
 	if (result != 0) {
 		printf("WSAStartup failed: %d\n", result);
@@ -102,14 +103,13 @@ int main(int argc, char* argv[])
 		printf("IP Adress  %s Port adress: ", inet_ntoa(addr));
 	}
 	// Create and init socket
-	SOCKET Sender_s, reciever_s;
-	//if ((Sender_s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == INVALID_SOCKET) // Create and init socket in TCP protocol
-//	{
-//		printf("Could not create socket : %d", WSAGetLastError());
-	//	return 1;
-	//}
+	
+	if ((Sender_s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == INVALID_SOCKET) // Create and init socket in TCP protocol
+	{
+		printf("Could not create socket : %d", WSAGetLastError());
+		return 1;
+	}
 	if ((Sender_s = WSASocketA(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_OVERLAPPED)) == INVALID_SOCKET)
-		//if ((server_s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == INVALID_SOCKET)
 	{
 		printf("Could not create socket : %d", WSAGetLastError());
 		return 1;
@@ -122,7 +122,7 @@ int main(int argc, char* argv[])
 	//sender_addr.sin_addr.s_addr = inet_addr(argv[1]);
 	sender_addr.sin_addr.s_addr = inet_addr(inet_ntoa(addr));
 	//sender_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	
+
 
 	//Bind and connect sender:
 	if (bind(Sender_s, (struct sockaddr*)&sender_addr, sizeof(sender_addr)) == SOCKET_ERROR)
@@ -131,18 +131,12 @@ int main(int argc, char* argv[])
 		exit(EXIT_FAILURE);
 	}
 	//wait for data to be sent by the channel WSA_FLAG_OVERLAPPED
-	int ListenRes = listen(Sender_s, SOMAXCONN);
-	printf(" IP Adress  %s \nPort adress:  %d \nlisten: %d \n", inet_ntoa(sender_addr.sin_addr), sender_addr.sin_port, ListenRes);
-	if (ListenRes == SOCKET_ERROR)
+	int Listen_s = listen(Sender_s, SOMAXCONN);
+	printf(" IP Adress  %s \nPort adress:  %d \nlisten: %d \n", inet_ntoa(sender_addr.sin_addr), sender_addr.sin_port, Listen_s);
+	if (Listen_s == SOCKET_ERROR)
 	{
 		printf("Failed listening on socket, error %ld.\n", WSAGetLastError());
 		return 1;
-	}
-	SOCKET sender;
-	sender = accept(Sender_s, NULL,NULL);
-	if (sender == INVALID_SOCKET)
-	{
-		printf("Accepting connection with client failed, error %ld\n", WSAGetLastError());
 	}
 
 	if ((reciever_s = WSASocketA(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_OVERLAPPED)) == INVALID_SOCKET)
@@ -158,27 +152,21 @@ int main(int argc, char* argv[])
 	reciever_addr.sin_addr.s_addr = inet_addr(inet_ntoa(addr));
 
 	// Bind and connect reciever:
-/* 	if (bind(reciever_s, (struct sockaddr*)&sender_addr, sizeof(sender_addr)) == SOCKET_ERROR)
+	if (bind(reciever_s, (struct sockaddr*)&reciever_addr, sizeof(reciever_addr)) == SOCKET_ERROR)
 	{
-		printf("Bind failed with error code : %d", WSAGetLastError());
+		printf("Bind2 failed with error code : %d", WSAGetLastError());
 		exit(EXIT_FAILURE);
 	}
 	//wait for data to be sent by the channel WSA_FLAG_OVERLAPPED
-	int ListenRes = listen(reciever_s, SOMAXCONN);
-	printf(" IP Adress  %s Port adress:  %d listen: %d ", inet_ntoa(sender_addr.sin_addr), sender_addr.sin_port, ListenRes);
-	if (ListenRes == SOCKET_ERROR)
+	int Listen_r = listen(reciever_s, SOMAXCONN);
+	printf(" IP Adress  %s Port adress:  %d listen: %d ", inet_ntoa(reciever_addr.sin_addr), reciever_addr.sin_port, Listen_r);
+	if (Listen_r == SOCKET_ERROR)
 	{
 		printf("Failed listening on socket, error %ld.\n", WSAGetLastError());
 		return 1;
 	}
-	SOCKET reciever;
-	reciever = accept(reciever_s, NULL, NULL);
-	if (reciever == INVALID_SOCKET)
-	{
-		printf("Accepting connection with client failed, error %ld\n", WSAGetLastError());
-	}
-*/
-	int buff_length, flipped_bits = 0;
+	
+	int buff_length, flipped_bits = 0, transmited_bytes =0;
 	unsigned char buffer[BUFFER_SIZE + 2] = { 0 };
 
 	//char* flag = argv[1];
@@ -187,20 +175,30 @@ int main(int argc, char* argv[])
 	//if(!strcmp(flag,'-r'))
 		//probability = atoi(argv[2]) / (pow(2, 16));
 
-	while (1)
-	{
-
-		
-
-
-
-
-
+	do {
+		sender = accept(Sender_s, NULL, NULL);
+		if (sender == INVALID_SOCKET)
+		{
+			printf("Accepting connection with client failed, error %ld\n", WSAGetLastError());
+		}
+		reciever = accept(reciever_s, NULL, NULL);
+		if (reciever == INVALID_SOCKET)
+		{
+			printf("Accepting connection with client failed, error %ld\n", WSAGetLastError());
+		}
 		do {
+			buff_length = recv(sender, buffer, BUFFER_SIZE + 2, 0);
+			if (buff_length > 0) {
+				//printf("Bytes received: %d\n the strins is %s\n", buff_length, buffer);
+				transmited_bytes += buff_length;
+				//add noise and count the flipped bits
+				if (send(reciever, buffer, strlen(buffer), 0) == SOCKET_ERROR)
+				{
+					printf("send() failed with error code : %d", WSAGetLastError());
+					exit(EXIT_FAILURE);
+				}
 
-			buff_length = recv(sender, buffer, BUFFER_SIZE +2, 0);
-			if (buff_length > 0)
-				printf("Bytes received: %d\n the strins is %s\n", buff_length, buffer);
+			}
 			else if (buff_length == 0) {
 				printf("Connection closed\n");
 			}
@@ -208,9 +206,19 @@ int main(int argc, char* argv[])
 				printf("recv failed: %d\n", WSAGetLastError());
 
 		} while (buff_length > 0);
-		break;
+
+		closesocket(sender);
+		closesocket(reciever);
+		printf("print something");
+		printf("continue? (yes/no)\n");
+		transmited_bytes = 0;
+		scanf("%s", continue_abort);
+	} while ((strcmp(continue_abort, "yes")|| strcmp(continue_abort, "Yes"))==0);
+	closesocket(Sender_s);
+	closesocket(reciever_s);
+	return 0;
+		//closeallsockets
 	
-	}
 
 
 		
