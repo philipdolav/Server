@@ -119,6 +119,7 @@ int main(int argc, char* argv[])
 	//sender_addr.sin_port = htons(atoi(argv[1]));
 	//sender_addr.sin_port = (unsigned short)PORT_s;
 	sender_addr.sin_port = htons(atoi(PORT_s));
+	//sender_addr.sin_port = atoi(PORT_s);
 	//sender_addr.sin_addr.s_addr = inet_addr(argv[1]);
 	sender_addr.sin_addr.s_addr = inet_addr(inet_ntoa(addr));
 	//sender_addr.sin_addr.s_addr = htonl(INADDR_ANY);
