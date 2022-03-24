@@ -16,7 +16,7 @@
 #define PORT_s "8888"
 #define PORT_r "8889"
 #define BUFFER_SIZE 3100
-
+int Seed;
 int rand_noise(char* buffer, int seed, double probability)
 {
 	/*
@@ -26,7 +26,7 @@ int rand_noise(char* buffer, int seed, double probability)
 
 	int probability_factor = 1 / probability;
 	int mask = 1, flipp_bit_counter = 0;
-	srand(seed);
+	//srand(seed);
 
 	for (int i = 0; i < strlen(buffer); i++)
 	{
@@ -87,6 +87,12 @@ int main(int argc, char* argv[])
 	char host_name[100];
 	struct in_addr addr;
 	char continue_abort[10] = {0};
+
+	char* flag = argv[1];
+	if (!strcmp(flag, "-r")) {
+		Seed = atoi(argv[3]);
+		srand(Seed);
+	}
 	SOCKET reciever, Sender_s, reciever_s, sender;
 	result = WSAStartup(MAKEWORD(2, 2), &wsa_data);
 	if (result != 0) {
@@ -95,7 +101,7 @@ int main(int argc, char* argv[])
 	}
 	gethostname(host_name, sizeof(host_name));
 	if (host_name == NULL) {
-		printf("ERROR woth host name");
+		printf("ERROR with host name");
 	}
 	remotehost = gethostbyname(host_name);
 	if (remotehost == NULL) {
@@ -173,7 +179,6 @@ int main(int argc, char* argv[])
 	int buff_length, flipped_bits = 0, transmited_bytes =0;
 	unsigned char buffer[BUFFER_SIZE + 2] = { 0 };
 
-	char* flag = argv[1];
 	double probability;
 
 	if(!strcmp(flag,"-r"))
@@ -196,13 +201,12 @@ int main(int argc, char* argv[])
 				//printf("Bytes received: %d\n the strins is %s\n", buff_length, buffer);
 				transmited_bytes += buff_length;
 				if (!strcmp(flag, "-r")) {
-					
 					flipped += rand_noise(buffer, atoi(argv[3]), probability);
 				}
 				else {
-					printf(" \nbefore det noise  %s", buffer);
+					//printf(" \nbefore det noise  %s", buffer);
 					flipped += determinist_noise(atoi(argv[2]), buffer);
-					printf(" \nafter  det noise  %s", buffer);
+					//printf(" \nafter  det noise  %s", buffer);
 				}
 				// printf("\n%d Where Flipped", flipped);
 				//add noise and count the flipped bits
@@ -214,7 +218,7 @@ int main(int argc, char* argv[])
 
 			}
 			else if (buff_length == 0) {
-				printf("\nConnection closed\n");
+				//printf("\nConnection closed\n");
 			}
 			else
 				printf("recv failed: %d\n", WSAGetLastError());
