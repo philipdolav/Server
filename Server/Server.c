@@ -33,21 +33,22 @@ int rand_noise(char* buffer, int seed, double probability)
 		mask = 1;
 		for (int j = 0; j < 8; j++) // noise is independent on every bit
 		{
-			/*
-			if (pow(2, 16) == MAX_P)
+			mask *= 2;
+			
+			if (pow(2, 16) == probability_factor)
 			{
 				if (rand() % 2 == 0)
 				{
 					continue;
 				}
 			}
-			*/
+			
 			if ((rand() % probability_factor) == 0)
 			{
 				buffer[i] = buffer[i] ^ mask;
 				flipp_bit_counter++;
 			}
-			mask *= 2; // shift left to next bit inside buffer[i]
+			//mask *= 2; // shift left to next bit inside buffer[i]
 		}
 	}
 
@@ -61,14 +62,16 @@ int determinist_noise(int n, char* buffer)
 	for (int i = 0; i < strlen(buffer); i++)
 	{
 		mask = 1;
+		
 		for (int j = 0; j < 8; j++)
 		{
+			mask *= 2;
 			if ((8 * i + j) % n == 0) // bit number
 			{
 				buffer[i] = buffer[i] ^ mask;
 				flipp_bit_counter++;
 			}
-			mask *= 2; // shift left to next bit inside buffer[i]
+			//mask *= 2; // shift left to next bit inside buffer[i]
 		}
 	}
 
@@ -79,7 +82,7 @@ int determinist_noise(int n, char* buffer)
 int main(int argc, char* argv[])
 {
 	WSADATA wsa_data;
-	int result;
+	int result, flipped = 0; ///// need to check when to reset flipped
 	struct hostent* remotehost = 0;
 	char host_name[100];
 	struct in_addr addr;
@@ -133,7 +136,7 @@ int main(int argc, char* argv[])
 	}
 	//wait for data to be sent by the channel WSA_FLAG_OVERLAPPED
 	int Listen_s = listen(Sender_s, SOMAXCONN);
-	printf(" IP Adress  %s \nPort adress:  %d \nlisten: %d \n", inet_ntoa(sender_addr.sin_addr), sender_addr.sin_port, Listen_s);
+	printf(" IP Adress  %s \nPort adress:  %s \nlisten: %d \n", inet_ntoa(sender_addr.sin_addr), PORT_s, Listen_s);
 	if (Listen_s == SOCKET_ERROR)
 	{
 		printf("Failed listening on socket, error %ld.\n", WSAGetLastError());
@@ -160,7 +163,7 @@ int main(int argc, char* argv[])
 	}
 	//wait for data to be sent by the channel WSA_FLAG_OVERLAPPED
 	int Listen_r = listen(reciever_s, SOMAXCONN);
-	printf(" IP Adress  %s Port adress:  %d listen: %d ", inet_ntoa(reciever_addr.sin_addr), reciever_addr.sin_port, Listen_r);
+	printf("Reciever IP Adress  %s\nPort adress:  %s\nlisten: %d ", inet_ntoa(reciever_addr.sin_addr), PORT_r, Listen_r);
 	if (Listen_r == SOCKET_ERROR)
 	{
 		printf("Failed listening on socket, error %ld.\n", WSAGetLastError());
@@ -170,11 +173,11 @@ int main(int argc, char* argv[])
 	int buff_length, flipped_bits = 0, transmited_bytes =0;
 	unsigned char buffer[BUFFER_SIZE + 2] = { 0 };
 
-	//char* flag = argv[1];
+	char* flag = argv[1];
 	double probability;
 
-	//if(!strcmp(flag,'-r'))
-		//probability = atoi(argv[2]) / (pow(2, 16));
+	if(!strcmp(flag,"-r"))
+		probability = atoi(argv[2]) / (pow(2, 16));
 
 	do {
 		sender = accept(Sender_s, NULL, NULL);
@@ -182,7 +185,7 @@ int main(int argc, char* argv[])
 		{
 			printf("Accepting connection with client failed, error %ld\n", WSAGetLastError());
 		}
-		reciever = accept(reciever_s, NULL, NULL);
+		reciever = accept(reciever_s, NULL, NULL); // do we need to have a timeout
 		if (reciever == INVALID_SOCKET)
 		{
 			printf("Accepting connection with client failed, error %ld\n", WSAGetLastError());
@@ -192,6 +195,16 @@ int main(int argc, char* argv[])
 			if (buff_length > 0) {
 				//printf("Bytes received: %d\n the strins is %s\n", buff_length, buffer);
 				transmited_bytes += buff_length;
+				if (!strcmp(flag, "-r")) {
+					
+					flipped += rand_noise(buffer, atoi(argv[3]), probability);
+				}
+				else {
+					printf(" \nbefore det noise  %s", buffer);
+					flipped += determinist_noise(atoi(argv[2]), buffer);
+					printf(" \nafter  det noise  %s", buffer);
+				}
+				// printf("\n%d Where Flipped", flipped);
 				//add noise and count the flipped bits
 				if (send(reciever, buffer, strlen(buffer), 0) == SOCKET_ERROR)
 				{
@@ -201,7 +214,7 @@ int main(int argc, char* argv[])
 
 			}
 			else if (buff_length == 0) {
-				printf("Connection closed\n");
+				printf("\nConnection closed\n");
 			}
 			else
 				printf("recv failed: %d\n", WSAGetLastError());
@@ -210,30 +223,17 @@ int main(int argc, char* argv[])
 
 		closesocket(sender);
 		closesocket(reciever);
-		printf("print something");
+		printf("retransmitted %d bytes, flipped %d bits\n", strlen(buffer) ,flipped);
 		printf("continue? (yes/no)\n");
 		transmited_bytes = 0;
+		flipped = 0;
 		scanf("%s", continue_abort);
-	} while ((strcmp(continue_abort, "yes")|| strcmp(continue_abort, "Yes"))==0);
+	} while ((!strcmp(continue_abort, "yes")|| !strcmp(continue_abort, "Yes")));
 	closesocket(Sender_s);
 	closesocket(reciever_s);
 	return 0;
 		//closeallsockets
-	
 
-
-		
-		// Noise insert:
-		//if (!strcmp(flag, '-r'))
-			//flipped_bits += rand_noise(buffer, argv[3], probability);
-	//	else if (!strcmp(flag, '-d'))
-		//	flipped_bits += determinist_noise(argv[2], buffer);
-
-		//Send to reciever:
-
-
-
-	
 }
 
 
