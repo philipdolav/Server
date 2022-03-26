@@ -176,7 +176,7 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 	
-	int buff_length, flipped_bits = 0, transmited_bytes =0;
+	int buff_length, flipped_bits = 0, transmited_bytes =0, buff_size = 0;
 	unsigned char buffer[BUFFER_SIZE + 2] = { 0 };
 
 	double probability;
@@ -197,7 +197,12 @@ int main(int argc, char* argv[])
 		}
 		do {
 			buff_length = recv(sender, buffer, BUFFER_SIZE + 2, 0);
+			buff_size += buff_length;
 			if (buff_length > 0) {
+				for (int i = buff_size; i < BUFFER_SIZE; i++)
+				{
+					buffer[i] = '\0';
+				}
 				//printf("Bytes received: %d\n the strins is %s\n", buff_length, buffer);
 				transmited_bytes += buff_length;
 				if (!strcmp(flag, "-r")) {
@@ -225,6 +230,11 @@ int main(int argc, char* argv[])
 
 		} while (buff_length > 0);
 
+		for (int i = 0; i < buff_size; i++)
+		{
+			buffer[i] = '\0';
+		}
+		buff_size = 0;
 		closesocket(sender);
 		closesocket(reciever);
 		printf("retransmitted %d bytes, flipped %d bits\n", strlen(buffer) ,flipped);
