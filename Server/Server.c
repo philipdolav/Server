@@ -1,4 +1,3 @@
-//This Header file contains all of includes which are being used in main.c
 #define _CRT_SECURE_NO_WARNINGS
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 #define _CRTDBG_MAP_ALLOC
@@ -15,7 +14,7 @@
 #include <stdbool.h>
 #define PORT_s "8888"
 #define PORT_r "8889"
-#define BUFFER_SIZE 1488
+#define BUFFER_SIZE 1488 //closest multiplication of 31 to 1500
 int Seed;
 int rand_noise(char* buffer, double probability)
 {
@@ -71,7 +70,6 @@ int determinist_noise(int n, char* buffer)
 				buffer[i] = buffer[i] ^ mask;
 				flipp_bit_counter++;
 			}
-			//mask *= 2; // shift left to next bit inside buffer[i]
 		}
 	}
 
@@ -125,13 +123,8 @@ int main(int argc, char* argv[])
 	}
 	struct sockaddr_in sender_addr;
 	sender_addr.sin_family = AF_INET;
-	//sender_addr.sin_port = htons(atoi(argv[1]));
-	//sender_addr.sin_port = (unsigned short)PORT_s;
 	sender_addr.sin_port = htons(atoi(PORT_s));
-	//sender_addr.sin_port = atoi(PORT_s);
-	//sender_addr.sin_addr.s_addr = inet_addr(argv[1]);
 	sender_addr.sin_addr.s_addr = inet_addr(inet_ntoa(addr));
-	//sender_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
 
 	//Bind and connect sender:
@@ -177,7 +170,7 @@ int main(int argc, char* argv[])
 	}
 	
 	int buff_length, flipped_bits = 0, buff_size = 0, packet_count = 0;
-	unsigned char buffer[BUFFER_SIZE + 2] = { 0 };
+	unsigned char buffer[BUFFER_SIZE+1] = { 0 };
 
 	double probability;
 
@@ -197,11 +190,11 @@ int main(int argc, char* argv[])
 		}
 		do {
 			// Receives data from sender, adds noise and sends noised data to receiver.
-			buff_length = recv(sender, buffer, BUFFER_SIZE + 2, 0);
+			buff_length = recv(sender, buffer, BUFFER_SIZE , 0);
 			buff_size += buff_length;
 			packet_count++;
 			if (buff_length > 0) {
-				for (int i = buff_length; i < BUFFER_SIZE; i++)
+				for (int i = buff_length; i < BUFFER_SIZE ; i++)
 				{
 					buffer[i] = '\0';
 				}
@@ -211,7 +204,7 @@ int main(int argc, char* argv[])
 				else {
 					flipped += determinist_noise(atoi(argv[2]), buffer);
 				}
-				if (send(reciever, buffer, strlen(buffer), 0) == SOCKET_ERROR)
+				if (send(reciever, buffer, buff_length, 0) == SOCKET_ERROR)
 				{
 					printf("send() failed with error code : %d", WSAGetLastError());
 					exit(EXIT_FAILURE);
@@ -225,10 +218,10 @@ int main(int argc, char* argv[])
 
 		} while (buff_length > 0);
 
-		/*for (int i = 0; i < buff_size; i++)
+		for (int i = 0; i < BUFFER_SIZE; i++)
 		{
 			buffer[i] = '\0';
-		}*/
+		}
 		closesocket(sender);
 		closesocket(reciever);
 		printf("retransmitted %d bytes, flipped %d bits\n", buff_size ,flipped);
