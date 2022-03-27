@@ -15,9 +15,9 @@
 #include <stdbool.h>
 #define PORT_s "8888"
 #define PORT_r "8889"
-#define BUFFER_SIZE 3100
+#define BUFFER_SIZE 1488
 int Seed;
-int rand_noise(char* buffer, int seed, double probability)
+int rand_noise(char* buffer, double probability)
 {
 	/*
 		Receives (char*) buffer, (int) seed, (double) probability, and "flips" every buffer's bit at the given probabilty.
@@ -25,16 +25,17 @@ int rand_noise(char* buffer, int seed, double probability)
 	*/
 
 	int probability_factor = 1 / probability;
-	int mask = 1, flipp_bit_counter = 0;
-	//srand(seed);
+	int mask = 1, flipped_bits_counter = 0;
 
 	for (int i = 0; i < strlen(buffer); i++)
 	{
 		mask = 1;
 		for (int j = 0; j < 8; j++) // noise is independent on every bit
 		{
-			mask *= 2;
+			mask *= 2; // shift left mask to next bit
 			
+			/* rand() returns a number between [0,2^15] so in case that int(2^16/probability) is 1
+						we add another rand of probabilty 0.25 */
 			if (pow(2, 16) == probability_factor)
 			{
 				if (rand() % 2 == 0)
@@ -46,13 +47,12 @@ int rand_noise(char* buffer, int seed, double probability)
 			if ((rand() % probability_factor) == 0)
 			{
 				buffer[i] = buffer[i] ^ mask;
-				flipp_bit_counter++;
+				flipped_bits_counter++;
 			}
-			//mask *= 2; // shift left to next bit inside buffer[i]
 		}
 	}
 
-	return flipp_bit_counter;
+	return flipped_bits_counter;
 }
 
 int determinist_noise(int n, char* buffer) 
@@ -176,7 +176,7 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 	
-	int buff_length, flipped_bits = 0, transmited_bytes =0, buff_size = 0;
+	int buff_length, flipped_bits = 0, buff_size = 0, packet_count = 0;
 	unsigned char buffer[BUFFER_SIZE + 2] = { 0 };
 
 	double probability;
@@ -196,25 +196,21 @@ int main(int argc, char* argv[])
 			printf("Accepting connection with client failed, error %ld\n", WSAGetLastError());
 		}
 		do {
+			// Receives data from sender, adds noise and sends noised data to receiver.
 			buff_length = recv(sender, buffer, BUFFER_SIZE + 2, 0);
 			buff_size += buff_length;
+			packet_count++;
 			if (buff_length > 0) {
-				for (int i = buff_size; i < BUFFER_SIZE; i++)
+				for (int i = buff_length; i < BUFFER_SIZE; i++)
 				{
 					buffer[i] = '\0';
 				}
-				//printf("Bytes received: %d\n the strins is %s\n", buff_length, buffer);
-				transmited_bytes += buff_length;
 				if (!strcmp(flag, "-r")) {
-					flipped += rand_noise(buffer, atoi(argv[3]), probability);
+					flipped += rand_noise(buffer, probability);
 				}
 				else {
-					//printf(" \nbefore det noise  %s", buffer);
 					flipped += determinist_noise(atoi(argv[2]), buffer);
-					//printf(" \nafter  det noise  %s", buffer);
 				}
-				// printf("\n%d Where Flipped", flipped);
-				//add noise and count the flipped bits
 				if (send(reciever, buffer, strlen(buffer), 0) == SOCKET_ERROR)
 				{
 					printf("send() failed with error code : %d", WSAGetLastError());
@@ -223,24 +219,24 @@ int main(int argc, char* argv[])
 
 			}
 			else if (buff_length == 0) {
-				//printf("\nConnection closed\n");
 			}
 			else
 				printf("recv failed: %d\n", WSAGetLastError());
 
 		} while (buff_length > 0);
 
-		for (int i = 0; i < buff_size; i++)
+		/*for (int i = 0; i < buff_size; i++)
 		{
 			buffer[i] = '\0';
-		}
-		buff_size = 0;
+		}*/
 		closesocket(sender);
 		closesocket(reciever);
-		printf("retransmitted %d bytes, flipped %d bits\n", strlen(buffer) ,flipped);
-		printf("continue? (yes/no)\n");
-		transmited_bytes = 0;
+		printf("retransmitted %d bytes, flipped %d bits\n", buff_size ,flipped);
+		// resets counters
+		buff_size = 0;
 		flipped = 0;
+		packet_count = 0;
+		printf("continue? (yes to continue / anything else to finish)\n");
 		scanf("%s", continue_abort);
 	} while ((!strcmp(continue_abort, "yes")|| !strcmp(continue_abort, "Yes")));
 	closesocket(Sender_s);
